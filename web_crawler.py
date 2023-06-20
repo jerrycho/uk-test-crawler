@@ -1,4 +1,5 @@
 import codecs
+import csv
 
 import requests
 import json
@@ -11,7 +12,7 @@ from json import dumps
 
 
 
-def get_info_by_quizid(qid):
+def get_info_by_quizid(qid, hashmap):
 
     ploads = {'action': 'wp_pro_quiz_admin_ajax', 'func': 'quizLoadData', 'data[quizId]': qid}
     r = requests.post('https://lifeintheuktests.co.uk/wp-admin/admin-ajax.php', data= ploads)
@@ -78,26 +79,71 @@ def get_info_by_quizid(qid):
       my_answer_list = []
       # loop answers_list[i]
       for x in range(len(answers_list[i])):
+        answer_zh = answers_list[i][x]
+        try:
+            answer_zh=hashmap[answers_list[i][x]]
+        except:
+            print("")
         my_answer_list.append(
             Answer(
-                answer=answers_list[i][x],
+                answer = answers_list[i][x],
+                answer_zh=answer_zh,
                 correct=correct_list[i][x]==1
             )
         )
 
+      quest_zh = quest_list[i]
+      try:
+          quest_zh = hashmap[quest_list[i]]
+      except:
+          print("")
       question_list.append(
+
           Question(
               id=id_list[i],
               quest=quest_list[i],
+              quest_zh= quest_zh,
               type=type_list[i],
               answers=my_answer_list
           )
       )
 
-    print(QuestionEncoder().encode(question_list))
+    #print(QuestionEncoder().encode(question_list))
 
     with codecs.open('test'+str(qid)+'.json', 'w', 'utf8') as f:
-       f.write(QuestionEncoder().encode(question_list))
+        json_str = json.dumps(question_list,  ensure_ascii=False, default=question_encoder)
+        print(json_str)
+        f.write(json_str)
+       #f.write(QuestionEncoder().encode(question_list), ensure_ascii=False)
+
+
+def question_encoder(obj):
+  if isinstance(obj, Question):
+    return {'id': obj.id, 'quest': obj.quest, 'quest_zh': obj.quest_zh, 'type': obj.type, 'answers': obj.answers}
+  elif isinstance(obj, Answer):
+    return {'answer': obj.answer, 'answer_zh': obj.answer_zh, 'correct': obj.correct}
+
+####
+# 建立一個空的 hashmap，用來儲存每一列的 dictionary
+csv_data = {}
+
+# 開啟 CSV 檔案
+with open('word-chinese.csv',  encoding="utf8", newline='') as csvfile:
+    # 建立 CSV 讀取器
+    reader = csv.reader(csvfile)
+    print(reader)
+    # 使用 next() 方法讀取第一列的資料，通常是欄位名稱，這邊我們先忽略不處理
+    next(reader)
+
+    # 逐一讀取每一列
+    for row in reader:
+
+        # 將 dictionary 儲存到 hashmap 中，使用第一個欄位的值當作 key
+        csv_data[row[0]] = row[1]
+
+# 印出 hashmap 中的所有資料
+for key, value in csv_data.items():
+    print(key, value)
 
 for i in range(1, 46):
-    get_info_by_quizid(i)
+    get_info_by_quizid(i, csv_data)
